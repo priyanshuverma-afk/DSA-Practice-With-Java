@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot - Gemini</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        @keyframes fadeIn {
+            0% {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes bounce {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .animate-fadeIn {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .typing-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin: 0 3px;
+            animation: bounce 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        .message-bubble {
+            max-width: 600px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .debug-panel {
+            background: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #cbd5e1;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .debug-log {
+            color: #22c55e;
+            margin: 3px 0;
+            padding: 3px;
+            border-left: 2px solid #22c55e;
+            padding-left: 8px;
+        }
+
+        .debug-error {
+            color: #ef4444;
+            margin: 3px 0;
+            padding: 3px;
+            border-left: 2px solid #ef4444;
+            padding-left: 8px;
+        }
+
+        .debug-info {
+            color: #60a5fa;
+            margin: 3px 0;
+            padding: 3px;
+            border-left: 2px solid #60a5fa;
+            padding-left: 8px;
+        }
+
+        .debug-success {
+            color: #22c55e;
+            margin: 3px 0;
+            padding: 3px;
+            border-left: 2px solid #22c55e;
+            padding-left: 8px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-connected {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-error {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-900 to-indigo-900">
+    <div class="flex flex-col h-screen">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 shadow-2xl">
+            <div class="max-w-6xl mx-auto">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center">
+                            <i class="fas fa-sparkles text-purple-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl font-bold">Gemini Chatbot</h1>
+                            <p class="text-pink-100 text-xs">Free AI by Google</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="debugToggle" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg flex items-center gap-2 transition text-sm">
+                            <i class="fas fa-bug"></i> Debug
+                        </button>
+                        <button id="settingsBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center gap-2 transition text-sm">
+                            <i class="fas fa-cog"></i> Settings
+                        </button>
+                        <button id="clearBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg flex items-center gap-2 transition text-sm">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Panel -->
+        <div id="debugPanel" class="hidden bg-slate-800 border-b border-slate-700 p-3 max-w-6xl mx-auto w-full">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-white font-bold text-sm">🔍 Debug Console</h3>
+                <button onclick="clearDebugLogs()" class="text-xs bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded">Clear</button>
+            </div>
+            <div id="debugLogs" class="debug-panel">
+                <div class="debug-info">Ready...</div>
+            </div>
+        </div>
+
+        <!-- API Status -->
+        <div id="statusBar" class="bg-slate-800 border-b border-slate-700 p-2 text-center text-sm">
+            <span id="apiStatus" class="status-badge status-error">
+                ⚠️ Setup Required
+            </span>
+        </div>
+
+        <!-- Error Alert -->
+        <div id="errorAlert" class="hidden bg-red-900 border-l-4 border-red-500 text-red-100 p-3 max-w-6xl mx-auto w-full">
+            <div class="flex justify-between items-start gap-2">
+                <div class="flex items-start gap-2 flex-1">
+                    <i class="fas fa-exclamation-circle text-red-400 mt-1 text-sm"></i>
+                    <div>
+                        <p id="errorTitle" class="font-bold text-sm">Error</p>
+                        <p id="errorMessage" class="text-xs mt-1"></p>
+                    </div>
+                </div>
+                <button class="text-red-400 hover:text-red-200 text-lg" onclick="hideError()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Messages Container -->
+        <div id="messagesContainer" class="flex-1 overflow-y-auto p-4 max-w-6xl mx-auto w-full">
+            <div id="messages" class="space-y-2">
+                <!-- Messages will be added here -->
+            </div>
+        </div>
+
+        <!-- Input Container -->
+        <div class="bg-slate-800 border-t-2 border-slate-700 p-3 shadow-xl">
+            <div class="max-w-6xl mx-auto">
+                <form id="chatForm" class="space-y-2">
+                    <div class="flex gap-2">
+                        <input 
+                            type="text" 
+                            id="messageInput" 
+                            placeholder="Type message..." 
+                            class="flex-1 px-3 py-2 rounded-full border-2 border-gray-600 bg-slate-700 text-white placeholder-gray-400 transition focus:outline-none focus:border-purple-500 text-sm"
+                        />
+                        <button 
+                            type="submit" 
+                            class="btn-send bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-full transition flex items-center gap-2 font-medium shadow-lg disabled:opacity-50 text-sm"
+                            id="sendBtn"
+                        >
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-slate-800 rounded-lg shadow-2xl p-5 max-w-sm w-full mx-4 text-white">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-xl font-bold">Gemini Settings</h2>
+                <button onclick="closeSettings()" class="text-gray-400 hover:text-white text-2xl">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="bg-purple-900 border border-purple-700 rounded p-3 mb-3 text-xs">
+                <p><strong>✅ 100% FREE</strong></p>
+                <p class="text-purple-200 mt-1">No credit card. Unlimited usage.</p>
+            </div>
+
+            <div class="space-y-3">
+                <!-- API Key -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">
+                        Google Gemini API Key
+                    </label>
+                    <input 
+                        type="password" 
+                        id="geminiKey" 
+                        placeholder="AIza..." 
+                        class="w-full px-3 py-2 border border-gray-600 rounded bg-slate-700 text-white focus:outline-none focus:border-purple-500 text-sm"
+                    />
+                    <p class="text-xs text-gray-400 mt-1">
+                        Get from: <a href="https://makersuite.google.com/app/apikey" target="_blank" class="text-purple-400 hover:underline">makersuite.google.com/app/apikey</a>
+                    </p>
+                </div>
+
+                <!-- Show/Hide -->
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="showKeys" class="w-4 h-4">
+                    <span class="text-xs text-gray-300">Show Key</span>
+                </label>
+
+                <!-- Test -->
+                <button type="button" onclick="testAPI()" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded font-medium transition text-sm">
+                    Test Connection
+                </button>
+
+                <!-- Save -->
+                <div class="flex gap-2 pt-2 border-t border-slate-600">
+                    <button type="button" onclick="saveSettings()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded font-medium transition text-sm">
+                        Save
+                    </button>
+                    <button type="button" onclick="closeSettings()" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded font-medium transition text-sm">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ✅ CORRECT MODELS FOR 2024
+        const AVAILABLE_MODELS = [
+            'gemini-2.0-flash',
+            'gemini-1.5-pro',
+            'gemini-1.5-flash'
+        ];
+
+        const GEMINI_MODEL = 'gemini-2.0-flash'; // ✅ WORKING MODEL
+        const API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+        let API_KEYS = {
+            gemini: localStorage.getItem('gemini_key') || ''
+        };
+
+        let messages = [];
+        let messageId = 1;
+        let isLoading = false;
+
+        // DOM
+        const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const chatForm = document.getElementById('chatForm');
+        const clearBtn = document.getElementById('clearBtn');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const messagesContainer = document.getElementById('messagesContainer');
+        const errorAlert = document.getElementById('errorAlert');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorTitle = document.getElementById('errorTitle');
+        const settingsModal = document.getElementById('settingsModal');
+        const geminiKeyInput = document.getElementById('geminiKey');
+        const showKeysCheckbox = document.getElementById('showKeys');
+        const apiStatus = document.getElementById('apiStatus');
+        const debugPanel = document.getElementById('debugPanel');
+        const debugToggle = document.getElementById('debugToggle');
+        const debugLogs_div = document.getElementById('debugLogs');
+        const sendBtn = document.getElementById('sendBtn');
+
+        // Events
+        chatForm.addEventListener('submit', handleSendMessage);
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage(new Event('submit'));
+            }
+        });
+        clearBtn.addEventListener('click', handleClearChat);
+        settingsBtn.addEventListener('click', openSettings);
+        showKeysCheckbox.addEventListener('change', () => {
+            geminiKeyInput.type = showKeysCheckbox.checked ? 'text' : 'password';
+        });
+        debugToggle.addEventListener('click', () => debugPanel.classList.toggle('hidden'));
+
+        // Init
+        geminiKeyInput.value = API_KEYS.gemini;
+        addLog('info', `Model: ${GEMINI_MODEL}`);
+        updateApiStatus();
+        addWelcomeMessage();
+
+        // ===================== FUNCTIONS =====================
+
+        function addLog(type, message, data = null) {
+            const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const logDiv = document.createElement('div');
+            logDiv.className = `debug-${type}`;
+            let logText = `[${timestamp}] ${message}`;
+            if (data) logText += ` → ${JSON.stringify(data).substring(0, 60)}`;
+            logDiv.textContent = logText;
+            debugLogs_div.appendChild(logDiv);
+            debugLogs_div.scrollTop = debugLogs_div.scrollHeight;
+        }
+
+        function clearDebugLogs() {
+            debugLogs_div.innerHTML = '<div class="debug-info">Cleared...</div>';
+        }
+
+        async function testAPI() {
+            addLog('info', 'Testing API...');
+            const key = geminiKeyInput.value.trim();
+            
+            if (!key) {
+                addLog('error', 'API key empty');
+                showError('Error', 'Enter API key');
+                return;
+            }
+
+            try {
+                const url = `${API_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${key}`;
+                addLog('info', `URL: ${url}`);
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: 'Say Hi' }] }]
+                    })
+                });
+
+                addLog('info', `Status: ${response.status}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    addLog('error', 'API Error', data.error);
+                    showError('Error', data.error?.message || 'API failed');
+                    return;
+                }
+
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response';
+                addLog('success', 'API Working!');
+                showSuccess('✅ Success! Response: ' + text.substring(0, 50) + '...');
+            } catch (error) {
+                addLog('error', 'Test failed', error.message);
+                showError('Error', error.message);
+            }
+        }
+
+        async function handleSendMessage(e) {
+            e.preventDefault();
+            const text = messageInput.value.trim();
+            if (!text || isLoading) return;
+
+            if (!API_KEYS.gemini) {
+                showError('Setup', 'Add API key in Settings');
+                openSettings();
+                return;
+            }
+
+            hideError();
+            isLoading = true;
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+
+            addLog('info', 'Sending...');
+
+            const userMsg = {
+                id: messageId++,
+                text: text,
+                isUser: true,
+                timestamp: new Date()
+            };
+            messages.push(userMsg);
+            messageInput.value = '';
+            renderMessages();
+
+            const typingDiv = createTypingIndicator();
+            messagesDiv.appendChild(typingDiv);
+            scrollToBottom();
+
+            try {
+                const response = await callGemini(text);
+                addLog('success', 'Got response');
+                typingDiv.remove();
+
+                const botMsg = {
+                    id: messageId++,
+                    text: response,
+                    isUser: false,
+                    timestamp: new Date()
+                };
+                messages.push(botMsg);
+                renderMessages();
+            } catch (error) {
+                addLog('error', 'Failed', error.message);
+                typingDiv.remove();
+                showError('Error', error.message);
+            } finally {
+                isLoading = false;
+                sendBtn.disabled = false;
+                messageInput.disabled = false;
+                messageInput.focus();
+            }
+        }
+
+        async function callGemini(message) {
+            const url = `${API_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${API_KEYS.gemini}`;
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: message }] }]
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                const msg = data.error?.message || JSON.stringify(data);
+                addLog('error', 'API Error', data.error);
+                throw new Error(msg);
+            }
+
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) throw new Error('No response from API');
+            return text;
+        }
+
+        function renderMessages() {
+            messagesDiv.innerHTML = '';
+            addWelcomeMessage();
+            messages.forEach(msg => {
+                messagesDiv.appendChild(createMessageElement(msg));
+            });
+            scrollToBottom();
+        }
+
+        function addWelcomeMessage() {
+            if (messages.length > 0) return;
+            const div = document.createElement('div');
+            div.className = 'bg-gradient-to-r from-purple-900 to-pink-900 text-white p-4 rounded-lg text-sm';
+            div.innerHTML = `
+                <p class="font-bold mb-2">👋 Welcome!</p>
+                <ol class="text-xs ml-4 space-y-1">
+                    <li>1. Add API key in Settings</li>
+                    <li>2. Click Test Connection</li>
+                    <li>3. Start chatting!</li>
+                </ol>
+            `;
+            messagesDiv.appendChild(div);
+        }
+
+        function createMessageElement(message) {
+            const div = document.createElement('div');
+            div.className = `flex gap-2 mb-2 animate-fadeIn ${message.isUser ? 'justify-end' : 'justify-start'}`;
+
+            if (!message.isUser) {
+                const avatar = document.createElement('div');
+                avatar.className = 'bg-gradient-to-r from-purple-500 to-pink-500 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0';
+                avatar.innerHTML = '<i class="fas fa-sparkles text-white text-xs"></i>';
+                div.appendChild(avatar);
+            }
+
+            const bubble = document.createElement('div');
+            const bubbleClass = message.isUser
+                ? 'bg-purple-600 text-white rounded-br-none'
+                : 'bg-gradient-to-r from-purple-700 to-pink-700 text-white rounded-bl-none';
+            bubble.className = `px-3 py-2 rounded-lg message-bubble ${bubbleClass} text-sm`;
+            bubble.textContent = message.text;
+            div.appendChild(bubble);
+
+            if (message.isUser) {
+                const avatar = document.createElement('div');
+                avatar.className = 'bg-blue-600 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0';
+                avatar.innerHTML = '<i class="fas fa-user text-white text-xs"></i>';
+                div.appendChild(avatar);
+            }
+
+            return div;
+        }
+
+        function createTypingIndicator() {
+            const div = document.createElement('div');
+            div.className = 'flex gap-2 mb-2';
+
+            const avatar = document.createElement('div');
+            avatar.className = 'bg-gradient-to-r from-purple-500 to-pink-500 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0';
+            avatar.innerHTML = '<i class="fas fa-sparkles text-white text-xs"></i>';
+            div.appendChild(avatar);
+
+            const bubble = document.createElement('div');
+            bubble.className = 'px-3 py-2 rounded-lg rounded-bl-none bg-gradient-to-r from-purple-700 to-pink-700';
+            bubble.innerHTML = `
+                <span class="typing-dot bg-gray-300"></span>
+                <span class="typing-dot bg-gray-300"></span>
+                <span class="typing-dot bg-gray-300"></span>
+            `;
+            div.appendChild(bubble);
+
+            return div;
+        }
+
+        function handleClearChat() {
+            messages = [];
+            renderMessages();
+            showSuccess('Chat cleared!');
+        }
+
+        function showError(title, message) {
+            errorTitle.textContent = title;
+            errorMessage.textContent = message;
+            errorAlert.classList.remove('hidden');
+        }
+
+        function hideError() {
+            errorAlert.classList.add('hidden');
+        }
+
+        function showSuccess(message) {
+            const msg = document.createElement('div');
+            msg.className = 'bg-green-900 border-l-4 border-green-500 text-green-100 p-2 rounded my-2 text-sm';
+            msg.textContent = message;
+            messagesContainer.insertBefore(msg, messagesDiv);
+            setTimeout(() => msg.remove(), 2500);
+        }
+
+        function openSettings() {
+            settingsModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSettings() {
+            settingsModal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        function saveSettings() {
+            const key = geminiKeyInput.value.trim();
+            if (!key) {
+                showError('Error', 'Enter API key');
+                return;
+            }
+            API_KEYS.gemini = key;
+            localStorage.setItem('gemini_key', key);
+            updateApiStatus();
+            closeSettings();
+            addLog('success', 'API Key saved');
+            showSuccess('✅ Saved!');
+        }
+
+        function updateApiStatus() {
+            if (API_KEYS.gemini) {
+                apiStatus.className = 'status-badge status-connected';
+                apiStatus.textContent = '✅ Ready';
+            } else {
+                apiStatus.className = 'status-badge status-error';
+                apiStatus.textContent = '⚠️ Setup Required';
+            }
+        }
+
+        function scrollToBottom() {
+            setTimeout(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 0);
+        }
+
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) closeSettings();
+        });
+    </script>
+</body>
+</html>
